@@ -33,7 +33,7 @@ export default function StudentDashboardPage() {
     ) || studentCourses[0];
 
   const attendance = student
-    ? getAttendancePercentage(student.id)
+    ? getAttendancePercentage(student)
     : 0;
 
   const courseProgress = activeCourse

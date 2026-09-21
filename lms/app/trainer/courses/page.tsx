@@ -14,7 +14,6 @@ export default function TrainerCoursesPage() {
     trainers,
     assignments,
     getAttendancePercentage,
-    getCourseProgress,
   } = useLms();
 
   // IMPORTANT: trainerId in lib/data.ts is a number
@@ -59,7 +58,7 @@ export default function TrainerCoursesPage() {
       ? Math.round(
           courseStudents.reduce(
             (total, student) =>
-              total + getAttendancePercentage(student.id),
+              total + getAttendancePercentage(student),
             0,
           ) / courseStudents.length,
         )
@@ -498,7 +497,7 @@ export default function TrainerCoursesPage() {
 
                 <tbody>
                   {courseStudents.map((student) => {
-                    const attendance = getAttendancePercentage(student.id);
+                    const attendance = getAttendancePercentage(student);
 
                     return (
                       <tr key={student.id}>

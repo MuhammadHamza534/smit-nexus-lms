@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import { useSearchParams } from "next/navigation";
 
 import AuthGuard from "@/components/AuthGuard";
@@ -29,28 +29,23 @@ export default function TrainerAttendancePage() {
 
   const queryCourseId = searchParams.get("course");
 
-  const [selectedCourseId, setSelectedCourseId] = useState("");
-  const [selectedAttendanceId, setSelectedAttendanceId] = useState<number | null>(
-    null
-  );
-  const [selectedMonth, setSelectedMonth] = useState("all");
-
-  useEffect(() => {
-    if (trainerCourses.length === 0) return;
-
+  const [selectedCourseId, setSelectedCourseId] = useState(() => {
     const queryCourseExists = trainerCourses.some(
       (course) => course.id === queryCourseId
     );
 
     if (queryCourseExists && queryCourseId) {
-      setSelectedCourseId(queryCourseId);
-      return;
+      return queryCourseId;
     }
 
-    if (!selectedCourseId) {
-      setSelectedCourseId(trainerCourses[0].id);
-    }
-  }, [queryCourseId, selectedCourseId, trainerCourses]);
+    return trainerCourses[0]?.id ?? "";
+  });
+
+  const [selectedAttendanceId, setSelectedAttendanceId] = useState<
+    number | null
+  >(null);
+
+  const [selectedMonth, setSelectedMonth] = useState("all");
 
   const courseAttendance = useMemo(() => {
     return dailyAttendance
@@ -78,27 +73,16 @@ export default function TrainerAttendancePage() {
     );
   }, [courseAttendance, selectedMonth]);
 
-  useEffect(() => {
+  const selectedAttendance = useMemo(() => {
     if (filteredAttendance.length === 0) {
-      setSelectedAttendanceId(null);
-      return;
+      return null;
     }
 
-    const selectedStillExists = filteredAttendance.some(
+    const selected = filteredAttendance.find(
       (item) => item.id === selectedAttendanceId
     );
 
-    if (!selectedStillExists) {
-      setSelectedAttendanceId(filteredAttendance[0].id);
-    }
-  }, [filteredAttendance, selectedAttendanceId]);
-
-  const selectedAttendance = useMemo(() => {
-    return (
-      filteredAttendance.find(
-        (item) => item.id === selectedAttendanceId
-      ) ?? null
-    );
+    return selected ?? filteredAttendance[0];
   }, [filteredAttendance, selectedAttendanceId]);
 
   const selectedCourse = trainerCourses.find(
@@ -321,8 +305,12 @@ export default function TrainerAttendancePage() {
               >
                 <div className="stat-card">
                   <div className="stat-icon">👥</div>
+
                   <div>
-                    <div className="info-box-label">Enrolled Students</div>
+                    <div className="info-box-label">
+                      Enrolled Students
+                    </div>
+
                     <div className="info-box-value">
                       {courseStudents.length}
                     </div>
@@ -331,8 +319,12 @@ export default function TrainerAttendancePage() {
 
                 <div className="stat-card">
                   <div className="stat-icon">📅</div>
+
                   <div>
-                    <div className="info-box-label">Attendance Days</div>
+                    <div className="info-box-label">
+                      Attendance Days
+                    </div>
+
                     <div className="info-box-value">
                       {filteredAttendance.length}
                     </div>
@@ -341,8 +333,12 @@ export default function TrainerAttendancePage() {
 
                 <div className="stat-card">
                   <div className="stat-icon">✓</div>
+
                   <div>
-                    <div className="info-box-label">Present Today</div>
+                    <div className="info-box-label">
+                      Present Today
+                    </div>
+
                     <div className="info-box-value">
                       {presentCount}
                     </div>
@@ -351,8 +347,12 @@ export default function TrainerAttendancePage() {
 
                 <div className="stat-card">
                   <div className="stat-icon">%</div>
+
                   <div>
-                    <div className="info-box-label">Selected Day</div>
+                    <div className="info-box-label">
+                      Selected Day
+                    </div>
+
                     <div className="info-box-value">
                       {attendancePercentage}%
                     </div>
@@ -361,7 +361,10 @@ export default function TrainerAttendancePage() {
               </section>
 
               {/* ATTENDANCE DAYS */}
-              <section className="lms-card" style={{ marginBottom: 20 }}>
+              <section
+                className="lms-card"
+                style={{ marginBottom: 20 }}
+              >
                 <div
                   style={{
                     display: "flex",
@@ -373,7 +376,10 @@ export default function TrainerAttendancePage() {
                   }}
                 >
                   <div>
-                    <h2 style={{ margin: 0 }}>Attendance Sessions</h2>
+                    <h2 style={{ margin: 0 }}>
+                      Attendance Sessions
+                    </h2>
+
                     <p
                       style={{
                         margin: "5px 0 0",
@@ -392,7 +398,9 @@ export default function TrainerAttendancePage() {
                 {filteredAttendance.length === 0 ? (
                   <div className="empty-state">
                     <div className="empty-state-icon">📅</div>
+
                     <h3>No attendance records</h3>
+
                     <p>
                       There are no attendance sessions for this course
                       and month.
@@ -464,8 +472,8 @@ export default function TrainerAttendancePage() {
                                   sessionPercentage >= 75
                                     ? "var(--success)"
                                     : sessionPercentage >= 50
-                                    ? "var(--warning)"
-                                    : "var(--danger)",
+                                      ? "var(--warning)"
+                                      : "var(--danger)",
                                 fontWeight: 800,
                               }}
                             >
@@ -569,6 +577,7 @@ export default function TrainerAttendancePage() {
                       }}
                     >
                       <div className="info-box-label">Present</div>
+
                       <div
                         className="info-box-value"
                         style={{ color: "var(--success)" }}
@@ -584,6 +593,7 @@ export default function TrainerAttendancePage() {
                       }}
                     >
                       <div className="info-box-label">Absent</div>
+
                       <div
                         className="info-box-value"
                         style={{ color: "var(--danger)" }}
@@ -601,6 +611,7 @@ export default function TrainerAttendancePage() {
                       <div className="info-box-label">
                         Attendance Rate
                       </div>
+
                       <div
                         className="info-box-value"
                         style={{ color: "var(--primary)" }}
@@ -614,7 +625,9 @@ export default function TrainerAttendancePage() {
                   {courseStudents.length === 0 ? (
                     <div className="empty-state">
                       <div className="empty-state-icon">👥</div>
+
                       <h3>No students enrolled</h3>
+
                       <p>
                         No active students are currently enrolled in this
                         course.
@@ -640,7 +653,7 @@ export default function TrainerAttendancePage() {
                             const status = getStudentStatus(student.id);
 
                             const overallPercentage =
-                              getAttendancePercentage(student.id);
+                              getAttendancePercentage(student);
 
                             return (
                               <tr key={student.id}>
@@ -676,6 +689,7 @@ export default function TrainerAttendancePage() {
 
                                     <div>
                                       <strong>{student.name}</strong>
+
                                       <div
                                         style={{
                                           fontSize: 12,
@@ -813,7 +827,9 @@ export default function TrainerAttendancePage() {
                   <section className="lms-card">
                     <div className="empty-state">
                       <div className="empty-state-icon">📋</div>
+
                       <h3>No attendance session selected</h3>
+
                       <p>
                         Select a course with attendance records to manage
                         student attendance.

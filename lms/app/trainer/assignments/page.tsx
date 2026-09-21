@@ -34,26 +34,23 @@ function TrainerAssignmentsContent() {
   const trainerId = 1;
 
   const trainerCourses = useMemo(
-    () =>
-      initialCourses.filter(
-        (course) => course.trainerId === trainerId
-      ),
-    []
+    () => initialCourses.filter((course) => course.trainerId === trainerId),
+    [],
   );
 
   const [selectedCourseId, setSelectedCourseId] = useState(
-    courseQuery || trainerCourses[0]?.id || ""
+    courseQuery || trainerCourses[0]?.id || "",
   );
 
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
   const [dueDate, setDueDate] = useState("");
 
-  const [selectedAssignmentId, setSelectedAssignmentId] =
-    useState<number | null>(null);
+  const [selectedAssignmentId, setSelectedAssignmentId] = useState<
+    number | null
+  >(null);
 
-  const [reviewStudentId, setReviewStudentId] =
-    useState<number | null>(null);
+  const [reviewStudentId, setReviewStudentId] = useState<number | null>(null);
 
   const [marks, setMarks] = useState("");
   const [feedback, setFeedback] = useState("");
@@ -64,12 +61,10 @@ function TrainerAssignmentsContent() {
   const [message, setMessage] = useState("");
 
   const trainerAssignments = useMemo(() => {
-    const courseIds = new Set(
-      trainerCourses.map((course) => course.id)
-    );
+    const courseIds = new Set(trainerCourses.map((course) => course.id));
 
     return assignments.filter((assignment) =>
-      courseIds.has(assignment.courseId)
+      courseIds.has(assignment.courseId),
     );
   }, [assignments, trainerCourses]);
 
@@ -77,31 +72,29 @@ function TrainerAssignmentsContent() {
     if (!selectedCourseId) return trainerAssignments;
 
     return trainerAssignments.filter(
-      (assignment) => assignment.courseId === selectedCourseId
+      (assignment) => assignment.courseId === selectedCourseId,
     );
   }, [trainerAssignments, selectedCourseId]);
 
   const selectedAssignment = useMemo(
     () =>
       assignments.find(
-        (assignment) => assignment.id === selectedAssignmentId
+        (assignment) => assignment.id === selectedAssignmentId,
       ) || null,
-    [assignments, selectedAssignmentId]
+    [assignments, selectedAssignmentId],
   );
 
   const selectedCourse = useMemo(
     () =>
       trainerCourses.find(
-        (course) => course.id === selectedAssignment?.courseId
+        (course) => course.id === selectedAssignment?.courseId,
       ),
-    [trainerCourses, selectedAssignment]
+    [trainerCourses, selectedAssignment],
   );
 
   const reviewStudent = useMemo(
-    () =>
-      students.find((student) => student.id === reviewStudentId) ||
-      null,
-    [students, reviewStudentId]
+    () => students.find((student) => student.id === reviewStudentId) || null,
+    [students, reviewStudentId],
   );
 
   const reviewSubmission = useMemo(() => {
@@ -109,8 +102,7 @@ function TrainerAssignmentsContent() {
 
     return (
       selectedAssignment.submissions.find(
-        (submission) =>
-          submission.studentId === reviewStudentId
+        (submission) => submission.studentId === reviewStudentId,
       ) || null
     );
   }, [selectedAssignment, reviewStudentId]);
@@ -119,7 +111,7 @@ function TrainerAssignmentsContent() {
     if (!selectedAssignment) return [];
 
     return students.filter((student) =>
-      student.courseIds.includes(selectedAssignment.courseId)
+      student.courseIds.includes(selectedAssignment.courseId),
     );
   }, [students, selectedAssignment]);
 
@@ -131,12 +123,12 @@ function TrainerAssignmentsContent() {
       return;
     }
 
-    createAssignment(
-      selectedCourseId,
-      title.trim(),
-      description.trim(),
-      dueDate
-    );
+    createAssignment({
+      courseId: selectedCourseId,
+      title: title.trim(),
+      description: description.trim(),
+      dueDate,
+    });
 
     setTitle("");
     setDescription("");
@@ -151,31 +143,23 @@ function TrainerAssignmentsContent() {
     setFeedback("");
   };
 
-  const openReviewModal = (
-    assignmentId: number,
-    studentId: number
-  ) => {
-    const assignment = assignments.find(
-      (item) => item.id === assignmentId
-    );
+  const openReviewModal = (assignmentId: number, studentId: number) => {
+    const assignment = assignments.find((item) => item.id === assignmentId);
 
     const submission = assignment?.submissions.find(
-      (item) => item.studentId === studentId
+      (item) => item.studentId === studentId,
     );
 
     setSelectedAssignmentId(assignmentId);
     setReviewStudentId(studentId);
     setMarks(
-      submission?.marks !== null &&
-      submission?.marks !== undefined
+      submission?.marks !== null && submission?.marks !== undefined
         ? String(submission.marks)
-        : ""
+        : "",
     );
     setFeedback(submission?.feedback || "");
     setReviewStatus(
-      submission?.reviewStatus === "rejected"
-        ? "rejected"
-        : "approved"
+      submission?.reviewStatus === "rejected" ? "rejected" : "approved",
     );
   };
 
@@ -184,14 +168,11 @@ function TrainerAssignmentsContent() {
       return;
     }
 
-    const numericMarks =
-      marks.trim() === "" ? null : Number(marks);
+    const numericMarks = marks.trim() === "" ? null : Number(marks);
 
     if (
       numericMarks !== null &&
-      (Number.isNaN(numericMarks) ||
-        numericMarks < 0 ||
-        numericMarks > 100)
+      (Number.isNaN(numericMarks) || numericMarks < 0 || numericMarks > 100)
     ) {
       setMessage("Marks must be between 0 and 100.");
       return;
@@ -202,13 +183,13 @@ function TrainerAssignmentsContent() {
       reviewStudentId,
       reviewStatus,
       numericMarks,
-      feedback.trim()
+      feedback.trim(),
     );
 
     setMessage(
       reviewStatus === "approved"
         ? "Submission approved successfully."
-        : "Submission rejected successfully."
+        : "Submission rejected successfully.",
     );
 
     setReviewStudentId(null);
@@ -232,9 +213,7 @@ function TrainerAssignmentsContent() {
       <div className="page-heading">
         <div>
           <h1>Assignments</h1>
-          <p>
-            Create assignments and review student submissions.
-          </p>
+          <p>Create assignments and review student submissions.</p>
         </div>
       </div>
 
@@ -248,9 +227,7 @@ function TrainerAssignmentsContent() {
         >
           <div className="info-box-label">System Message</div>
 
-          <div className="info-box-value">
-            {message}
-          </div>
+          <div className="info-box-value">{message}</div>
 
           <button
             className="secondary-button"
@@ -271,13 +248,9 @@ function TrainerAssignmentsContent() {
           <div className="stat-icon">📝</div>
 
           <div>
-            <div className="stat-label">
-              Total Assignments
-            </div>
+            <div className="stat-label">Total Assignments</div>
 
-            <div className="stat-value">
-              {trainerAssignments.length}
-            </div>
+            <div className="stat-value">{trainerAssignments.length}</div>
           </div>
         </div>
 
@@ -285,13 +258,9 @@ function TrainerAssignmentsContent() {
           <div className="stat-icon">📚</div>
 
           <div>
-            <div className="stat-label">
-              Trainer Courses
-            </div>
+            <div className="stat-label">Trainer Courses</div>
 
-            <div className="stat-value">
-              {trainerCourses.length}
-            </div>
+            <div className="stat-value">{trainerCourses.length}</div>
           </div>
         </div>
 
@@ -299,13 +268,9 @@ function TrainerAssignmentsContent() {
           <div className="stat-icon">👥</div>
 
           <div>
-            <div className="stat-label">
-              Students
-            </div>
+            <div className="stat-label">Students</div>
 
-            <div className="stat-value">
-              {students.length}
-            </div>
+            <div className="stat-value">{students.length}</div>
           </div>
         </div>
       </div>
@@ -314,9 +279,7 @@ function TrainerAssignmentsContent() {
         <div className="lms-card-header">
           <div>
             <h2>Create Assignment</h2>
-            <p>
-              Create a new assignment for one of your courses.
-            </p>
+            <p>Create a new assignment for one of your courses.</p>
           </div>
         </div>
 
@@ -330,22 +293,15 @@ function TrainerAssignmentsContent() {
         >
           <div className="form-grid">
             <div>
-              <label className="form-label">
-                Course
-              </label>
+              <label className="form-label">Course</label>
 
               <select
                 className="form-control lms-select"
                 value={selectedCourseId}
-                onChange={(event) =>
-                  setSelectedCourseId(event.target.value)
-                }
+                onChange={(event) => setSelectedCourseId(event.target.value)}
               >
                 {trainerCourses.map((course) => (
-                  <option
-                    key={course.id}
-                    value={course.id}
-                  >
+                  <option key={course.id} value={course.id}>
                     {course.title}
                   </option>
                 ))}
@@ -353,93 +309,66 @@ function TrainerAssignmentsContent() {
             </div>
 
             <div>
-              <label className="form-label">
-                Due Date
-              </label>
+              <label className="form-label">Due Date</label>
 
               <input
                 className="form-control"
                 type="date"
                 value={dueDate}
-                onChange={(event) =>
-                  setDueDate(event.target.value)
-                }
+                onChange={(event) => setDueDate(event.target.value)}
               />
             </div>
           </div>
 
           <div>
-            <label className="form-label">
-              Assignment Title
-            </label>
+            <label className="form-label">Assignment Title</label>
 
             <input
               className="form-control"
               type="text"
               placeholder="Enter assignment title"
               value={title}
-              onChange={(event) =>
-                setTitle(event.target.value)
-              }
+              onChange={(event) => setTitle(event.target.value)}
             />
           </div>
 
           <div>
-            <label className="form-label">
-              Description
-            </label>
+            <label className="form-label">Description</label>
 
             <textarea
               className="form-control"
               rows={4}
               placeholder="Enter assignment instructions..."
               value={description}
-              onChange={(event) =>
-                setDescription(event.target.value)
-              }
+              onChange={(event) => setDescription(event.target.value)}
             />
           </div>
 
           <div>
-            <button
-              type="submit"
-              className="primary-button"
-            >
+            <button type="submit" className="primary-button">
               + Create Assignment
             </button>
           </div>
         </form>
       </div>
 
-      <div
-        className="lms-card"
-        style={{ marginTop: 24 }}
-      >
+      <div className="lms-card" style={{ marginTop: 24 }}>
         <div className="lms-card-header">
           <div>
             <h2>Assignment List</h2>
-            <p>
-              Select an assignment to view its submissions.
-            </p>
+            <p>Select an assignment to view its submissions.</p>
           </div>
 
           <div style={{ minWidth: 240 }}>
             <select
               className="form-control lms-select"
               value={selectedCourseId}
-              onChange={(event) =>
-                setSelectedCourseId(event.target.value)
-              }
+              onChange={(event) => setSelectedCourseId(event.target.value)}
             >
-              <option value="">
-                All Courses
-              </option>
+              <option value="">All Courses</option>
 
               {trainerCourses.map((course) => (
-                <option
-                  key={course.id}
-                  value={course.id}
-                >
+                <option key={course.id} value={course.id}>
                   {course.shortName} — {course.title}
                 </option>
               ))}
@@ -449,15 +378,11 @@ function TrainerAssignmentsContent() {
 
         {filteredAssignments.length === 0 ? (
           <div className="empty-state">
-            <div className="empty-state-icon">
-              📝
-            </div>
+            <div className="empty-state-icon">📝</div>
 
             <h3>No assignments found</h3>
 
-            <p>
-              Create an assignment using the form above.
-            </p>
+            <p>Create an assignment using the form above.</p>
           </div>
         ) : (
           <div
@@ -469,21 +394,16 @@ function TrainerAssignmentsContent() {
           >
             {filteredAssignments.map((assignment) => {
               const course = trainerCourses.find(
-                (item) =>
-                  item.id === assignment.courseId
+                (item) => item.id === assignment.courseId,
               );
 
-              const submittedCount =
-                assignment.submissions.filter(
-                  (submission) =>
-                    submission.submitted
-                ).length;
+              const submittedCount = assignment.submissions.filter(
+                (submission) => submission.submitted,
+              ).length;
 
-              const checkedCount =
-                assignment.submissions.filter(
-                  (submission) =>
-                    submission.checked
-                ).length;
+              const checkedCount = assignment.submissions.filter(
+                (submission) => submission.checked,
+              ).length;
 
               return (
                 <div
@@ -492,17 +412,12 @@ function TrainerAssignmentsContent() {
                   style={{
                     cursor: "pointer",
                   }}
-                  onClick={() =>
-                    openSubmissionModal(
-                      assignment.id
-                    )
-                  }
+                  onClick={() => openSubmissionModal(assignment.id)}
                 >
                   <div
                     style={{
                       display: "flex",
-                      justifyContent:
-                        "space-between",
+                      justifyContent: "space-between",
                       gap: 16,
                       flexWrap: "wrap",
                     }}
@@ -511,25 +426,21 @@ function TrainerAssignmentsContent() {
                       <div
                         style={{
                           fontSize: 13,
-                          color:
-                            "var(--text-muted)",
+                          color: "var(--text-muted)",
                           marginBottom: 6,
                         }}
                       >
                         {course?.shortName || "Course"}
                       </div>
 
-                      <h3>
-                        {assignment.title}
-                      </h3>
+                      <h3>{assignment.title}</h3>
 
                       <p
                         style={{
                           marginTop: 8,
                         }}
                       >
-                        {assignment.description ||
-                          "No description provided."}
+                        {assignment.description || "No description provided."}
                       </p>
                     </div>
 
@@ -556,17 +467,13 @@ function TrainerAssignmentsContent() {
                       Submitted: {submittedCount}
                     </span>
 
-                    <span className="status-pill">
-                      Checked: {checkedCount}
-                    </span>
+                    <span className="status-pill">Checked: {checkedCount}</span>
 
                     <button
                       className="primary-button"
                       onClick={(event) => {
                         event.stopPropagation();
-                        openSubmissionModal(
-                          assignment.id
-                        );
+                        openSubmissionModal(assignment.id);
                       }}
                     >
                       View Submissions
@@ -590,14 +497,9 @@ function TrainerAssignmentsContent() {
           >
             <div className="modal-header">
               <div>
-                <h2>
-                  {selectedAssignment.title}
-                </h2>
+                <h2>{selectedAssignment.title}</h2>
 
-                <p>
-                  {selectedCourse?.title ||
-                    "Course"}
-                </p>
+                <p>{selectedCourse?.title || "Course"}</p>
               </div>
 
               <button
@@ -631,12 +533,9 @@ function TrainerAssignmentsContent() {
 
                 <tbody>
                   {courseStudents.map((student) => {
-                    const submission =
-                      selectedAssignment.submissions.find(
-                        (item) =>
-                          item.studentId ===
-                          student.id
-                      );
+                    const submission = selectedAssignment.submissions.find(
+                      (item) => item.studentId === student.id,
+                    );
 
                     return (
                       <tr key={student.id}>
@@ -656,40 +555,28 @@ function TrainerAssignmentsContent() {
                           )}
                         </td>
 
-                        <td>
-                          {submission?.marks ??
-                            "—"}
-                        </td>
+                        <td>{submission?.marks ?? "—"}</td>
 
                         <td>
-                          {submission?.reviewStatus ===
-                          "approved" ? (
+                          {submission?.reviewStatus === "approved" ? (
                             <span className="status-pill status-active">
                               Approved
                             </span>
-                          ) : submission?.reviewStatus ===
-                            "rejected" ? (
+                          ) : submission?.reviewStatus === "rejected" ? (
                             <span className="status-pill status-eliminated">
                               Rejected
                             </span>
                           ) : (
-                            <span className="status-pill">
-                              Pending
-                            </span>
+                            <span className="status-pill">Pending</span>
                           )}
                         </td>
 
                         <td>
                           <button
                             className="primary-button"
-                            disabled={
-                              !submission?.submitted
-                            }
+                            disabled={!submission?.submitted}
                             onClick={() =>
-                              openReviewModal(
-                                selectedAssignment.id,
-                                student.id
-                              )
+                              openReviewModal(selectedAssignment.id, student.id)
                             }
                           >
                             Review
@@ -705,128 +592,97 @@ function TrainerAssignmentsContent() {
         </div>
       )}
 
-      {reviewStudent &&
-        reviewSubmission &&
-        selectedAssignment && (
-          <div className="modal-backdrop">
-            <div className="modal-card">
-              <div className="modal-header">
-                <div>
-                  <h2>
-                    Review Submission
-                  </h2>
+      {reviewStudent && reviewSubmission && selectedAssignment && (
+        <div className="modal-backdrop">
+          <div className="modal-card">
+            <div className="modal-header">
+              <div>
+                <h2>Review Submission</h2>
 
-                  <p>
-                    {reviewStudent.name} —{" "}
-                    {selectedAssignment.title}
-                  </p>
-                </div>
+                <p>
+                  {reviewStudent.name} — {selectedAssignment.title}
+                </p>
+              </div>
 
-                <button
-                  className="secondary-button"
-                  onClick={() =>
-                    setReviewStudentId(null)
+              <button
+                className="secondary-button"
+                onClick={() => setReviewStudentId(null)}
+              >
+                Close
+              </button>
+            </div>
+
+            <div
+              style={{
+                display: "grid",
+                gap: 18,
+                marginTop: 20,
+              }}
+            >
+              <div>
+                <label className="form-label">Review Status</label>
+
+                <select
+                  className="form-control lms-select"
+                  value={reviewStatus}
+                  onChange={(event) =>
+                    setReviewStatus(event.target.value as SubmissionStatus)
                   }
                 >
-                  Close
-                </button>
+                  <option value="approved">Approved</option>
+
+                  <option value="rejected">Rejected</option>
+                </select>
+              </div>
+
+              <div>
+                <label className="form-label">Marks</label>
+
+                <input
+                  className="form-control"
+                  type="number"
+                  min="0"
+                  max="100"
+                  placeholder="0 - 100"
+                  value={marks}
+                  onChange={(event) => setMarks(event.target.value)}
+                />
+              </div>
+
+              <div>
+                <label className="form-label">Feedback</label>
+
+                <textarea
+                  className="form-control"
+                  rows={5}
+                  placeholder="Write feedback for the student..."
+                  value={feedback}
+                  onChange={(event) => setFeedback(event.target.value)}
+                />
               </div>
 
               <div
                 style={{
-                  display: "grid",
-                  gap: 18,
-                  marginTop: 20,
+                  display: "flex",
+                  gap: 12,
+                  justifyContent: "flex-end",
                 }}
               >
-                <div>
-                  <label className="form-label">
-                    Review Status
-                  </label>
-
-                  <select
-                    className="form-control lms-select"
-                    value={reviewStatus}
-                    onChange={(event) =>
-                      setReviewStatus(
-                        event.target
-                          .value as SubmissionStatus
-                      )
-                    }
-                  >
-                    <option value="approved">
-                      Approved
-                    </option>
-
-                    <option value="rejected">
-                      Rejected
-                    </option>
-                  </select>
-                </div>
-
-                <div>
-                  <label className="form-label">
-                    Marks
-                  </label>
-
-                  <input
-                    className="form-control"
-                    type="number"
-                    min="0"
-                    max="100"
-                    placeholder="0 - 100"
-                    value={marks}
-                    onChange={(event) =>
-                      setMarks(event.target.value)
-                    }
-                  />
-                </div>
-
-                <div>
-                  <label className="form-label">
-                    Feedback
-                  </label>
-
-                  <textarea
-                    className="form-control"
-                    rows={5}
-                    placeholder="Write feedback for the student..."
-                    value={feedback}
-                    onChange={(event) =>
-                      setFeedback(
-                        event.target.value
-                      )
-                    }
-                  />
-                </div>
-
-                <div
-                  style={{
-                    display: "flex",
-                    gap: 12,
-                    justifyContent: "flex-end",
-                  }}
+                <button
+                  className="secondary-button"
+                  onClick={() => setReviewStudentId(null)}
                 >
-                  <button
-                    className="secondary-button"
-                    onClick={() =>
-                      setReviewStudentId(null)
-                    }
-                  >
-                    Cancel
-                  </button>
+                  Cancel
+                </button>
 
-                  <button
-                    className="primary-button"
-                    onClick={handleReview}
-                  >
-                    Save Review
-                  </button>
-                </div>
+                <button className="primary-button" onClick={handleReview}>
+                  Save Review
+                </button>
               </div>
             </div>
           </div>
-        )}
+        </div>
+      )}
     </div>
   );
 }

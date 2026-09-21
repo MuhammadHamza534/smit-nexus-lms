@@ -68,7 +68,6 @@ export default function StudentProgressPage() {
     const values = studentCourses.map(
       (course) =>
         getCourseProgress(
-          studentId,
           course.id
         )
     );
@@ -514,7 +513,7 @@ export default function StudentProgressPage() {
                     fontSize: "12px",
                   }}
                 >
-                  {activeCourse.location} ·{" "}
+                  {activeCourse.campus} ·{" "}
                   {activeCourse.schedule}
                 </p>
               </div>

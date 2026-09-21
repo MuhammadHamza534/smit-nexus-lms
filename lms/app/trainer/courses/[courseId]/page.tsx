@@ -63,8 +63,7 @@ export default function TrainerCourseDetailPage() {
             (total, student) =>
               total +
               getAttendancePercentage(
-                student.id,
-                course?.id || ""
+                student
               ),
             0
           ) / courseStudents.length
@@ -527,8 +526,7 @@ export default function TrainerCourseDetailPage() {
 
                         const attendance =
                           getAttendancePercentage(
-                            student.id,
-                            course.id
+                            student
                           );
 
                         return (
