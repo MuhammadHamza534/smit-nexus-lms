@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { Suspense, useMemo, useState } from "react";
 import { useSearchParams } from "next/navigation";
 
 import AuthGuard from "@/components/AuthGuard";
@@ -8,30 +8,29 @@ import DashboardShell from "@/components/DashboardShell";
 import { useLms } from "@/components/LmsProvider";
 import { initialCourses } from "@/lib/data";
 
-export default function TrainerAttendancePage() {
+function TrainerAttendanceContent() {
   const searchParams = useSearchParams();
 
   const {
     students,
+    trainers,
     dailyAttendance,
-    ready,
     updateAttendance,
     getAttendancePercentage,
   } = useLms();
 
   const trainerId = 1;
+  const trainer = trainers.find((item) => item.id === trainerId);
 
   const trainerCourses = useMemo(() => {
-    return initialCourses.filter(
-      (course) => course.trainerId === trainerId
-    );
+    return initialCourses.filter((course) => course.trainerId === trainerId);
   }, []);
 
   const queryCourseId = searchParams.get("course");
 
   const [selectedCourseId, setSelectedCourseId] = useState(() => {
     const queryCourseExists = trainerCourses.some(
-      (course) => course.id === queryCourseId
+      (course) => course.id === queryCourseId,
     );
 
     if (queryCourseExists && queryCourseId) {
@@ -47,30 +46,34 @@ export default function TrainerAttendancePage() {
 
   const [selectedMonth, setSelectedMonth] = useState("all");
 
+  const selectedCourse = useMemo(() => {
+    return trainerCourses.find((course) => course.id === selectedCourseId);
+  }, [trainerCourses, selectedCourseId]);
+
+  const courseStudents = useMemo(() => {
+    if (!selectedCourseId) return [];
+
+    return students.filter(
+      (student) =>
+        student.courseIds.includes(selectedCourseId) &&
+        student.status === "active",
+    );
+  }, [students, selectedCourseId]);
+
   const courseAttendance = useMemo(() => {
     return dailyAttendance
       .filter((item) => item.courseId === selectedCourseId)
       .sort((a, b) => b.date.localeCompare(a.date));
   }, [dailyAttendance, selectedCourseId]);
 
-  const availableMonths = useMemo(() => {
-    const months = new Set<string>();
-
-    courseAttendance.forEach((item) => {
-      months.add(item.date.slice(0, 7));
-    });
-
-    return Array.from(months).sort((a, b) => b.localeCompare(a));
-  }, [courseAttendance]);
-
   const filteredAttendance = useMemo(() => {
     if (selectedMonth === "all") {
       return courseAttendance;
     }
 
-    return courseAttendance.filter((item) =>
-      item.date.startsWith(selectedMonth)
-    );
+    return courseAttendance.filter((item) => {
+      return item.date.startsWith(selectedMonth);
+    });
   }, [courseAttendance, selectedMonth]);
 
   const selectedAttendance = useMemo(() => {
@@ -79,170 +82,118 @@ export default function TrainerAttendancePage() {
     }
 
     const selected = filteredAttendance.find(
-      (item) => item.id === selectedAttendanceId
+      (item) => item.id === selectedAttendanceId,
     );
 
     return selected ?? filteredAttendance[0];
   }, [filteredAttendance, selectedAttendanceId]);
 
-  const selectedCourse = trainerCourses.find(
-    (course) => course.id === selectedCourseId
-  );
+  const attendanceStats = useMemo(() => {
+    if (!selectedAttendance) {
+      return {
+        present: 0,
+        absent: 0,
+        total: 0,
+        percentage: 0,
+      };
+    }
 
-  const courseStudents = useMemo(() => {
-    if (!selectedCourseId) return [];
+    const present = selectedAttendance.records.filter(
+      (record) => record.status === "Present",
+    ).length;
 
-    return students
-      .filter(
-        (student) =>
-          student.courseIds.includes(selectedCourseId) &&
-          student.status === "active"
-      )
-      .sort((a, b) => a.name.localeCompare(b.name));
-  }, [students, selectedCourseId]);
+    const absent = selectedAttendance.records.filter(
+      (record) => record.status === "Absent",
+    ).length;
 
-  const getStudentStatus = (studentId: number) => {
-    const record = selectedAttendance?.records.find(
-      (record) => record.studentId === studentId
+    const total = present + absent;
+
+    return {
+      present,
+      absent,
+      total,
+      percentage: total > 0 ? Math.round((present / total) * 100) : 0,
+    };
+  }, [selectedAttendance]);
+
+  const availableMonths = useMemo(() => {
+    const months = Array.from(
+      new Set(courseAttendance.map((item) => item.date.slice(0, 7))),
     );
 
-    return record?.status ?? "Absent";
-  };
+    return months.sort((a, b) => b.localeCompare(a));
+  }, [courseAttendance]);
 
-  const presentCount = selectedAttendance
-    ? selectedAttendance.records.filter(
-        (record) => record.status === "Present"
-      ).length
-    : 0;
+  const studentAttendanceMap = useMemo(() => {
+    if (!selectedAttendance) {
+      return new Map<number, "Present" | "Absent">();
+    }
 
-  const absentCount = selectedAttendance
-    ? selectedAttendance.records.filter(
-        (record) => record.status === "Absent"
-      ).length
-    : 0;
+    return new Map(
+      selectedAttendance.records.map((record) => [
+        record.studentId,
+        record.status,
+      ]),
+    );
+  }, [selectedAttendance]);
 
-  const totalMarked = presentCount + absentCount;
-
-  const attendancePercentage =
-    totalMarked > 0
-      ? Math.round((presentCount / totalMarked) * 100)
-      : 0;
-
-  const setStudentAttendance = (
+  const handleStatusChange = (
     studentId: number,
-    status: "Present" | "Absent"
+    status: "Present" | "Absent",
   ) => {
     if (!selectedAttendance) return;
 
     updateAttendance(selectedAttendance.id, studentId, status);
   };
 
-  const markAllPresent = () => {
-    if (!selectedAttendance) return;
-
-    courseStudents.forEach((student) => {
-      updateAttendance(selectedAttendance.id, student.id, "Present");
-    });
-  };
-
-  const markAllAbsent = () => {
-    if (!selectedAttendance) return;
-
-    courseStudents.forEach((student) => {
-      updateAttendance(selectedAttendance.id, student.id, "Absent");
-    });
-  };
-
-  const formatDate = (date: string) => {
-    return new Date(`${date}T00:00:00`).toLocaleDateString("en-PK", {
-      weekday: "short",
-      day: "2-digit",
-      month: "short",
-      year: "numeric",
-    });
-  };
-
-  const formatMonth = (month: string) => {
-    const [year, monthNumber] = month.split("-");
-
-    return new Date(
-      Number(year),
-      Number(monthNumber) - 1,
-      1
-    ).toLocaleDateString("en-PK", {
-      month: "long",
-      year: "numeric",
-    });
+  const handleSelectAttendance = (id: number) => {
+    setSelectedAttendanceId(id);
   };
 
   return (
     <AuthGuard role="trainer">
-      <DashboardShell role="trainer" title="Attendance">
-        <main className="dashboard-content">
-          {/* PAGE HEADER */}
-          <div
-            className="page-heading"
-            style={{
-              display: "flex",
-              justifyContent: "space-between",
-              alignItems: "flex-start",
-              gap: 20,
-              flexWrap: "wrap",
-            }}
-          >
+      <DashboardShell role="trainer" title="Attendance Management">
+        <div className="space-y-6">
+          {/* Header */}
+          <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
             <div>
-              <h1>Attendance Management</h1>
-              <p>
-                Mark and manage attendance for your enrolled students.
+              <p className="text-sm font-medium text-[#8e9bb0]">
+                Trainer Portal
+              </p>
+
+              <h1 className="mt-1 text-2xl font-bold text-white">
+                Attendance Management
+              </h1>
+
+              <p className="mt-1 text-sm text-[#8e9bb0]">
+                Manage daily attendance for your courses and students.
               </p>
             </div>
 
-            {selectedCourse && (
-              <div
-                className="info-box"
-                style={{
-                  minWidth: 220,
-                  marginTop: 4,
-                }}
-              >
-                <div className="info-box-label">Current Course</div>
-                <div className="info-box-value">
-                  {selectedCourse.shortName}
-                </div>
-              </div>
-            )}
+            <div className="rounded-xl border border-[#26344a] bg-[#111a2a] px-4 py-3">
+              <p className="text-xs text-[#8e9bb0]">Trainer</p>
+
+              <p className="mt-1 font-semibold text-white">
+                {trainer?.name ?? "Ahmed Khan"}
+              </p>
+            </div>
           </div>
 
-          {/* COURSE + MONTH FILTERS */}
-          <section className="lms-card" style={{ marginBottom: 20 }}>
-            <div
-              style={{
-                display: "grid",
-                gridTemplateColumns:
-                  "minmax(220px, 1.5fr) minmax(180px, 1fr)",
-                gap: 16,
-              }}
-            >
+          {/* Course Selection */}
+          <div className="rounded-2xl border border-[#26344a] bg-[#111a2a] p-5">
+            <div className="grid gap-5 lg:grid-cols-[1fr_220px]">
               <div>
-                <label
-                  htmlFor="course"
-                  style={{
-                    display: "block",
-                    marginBottom: 8,
-                    fontWeight: 700,
-                  }}
-                >
+                <label className="mb-2 block text-sm font-medium text-[#c8d2e0]">
                   Select Course
                 </label>
 
                 <select
-                  id="course"
-                  className="lms-select"
                   value={selectedCourseId}
                   onChange={(event) => {
                     setSelectedCourseId(event.target.value);
                     setSelectedAttendanceId(null);
                   }}
+                  className="w-full rounded-xl border border-[#34445d] bg-[#0b1220] px-4 py-3 text-sm text-white outline-none transition focus:border-[#5f7cff]"
                 >
                   {trainerCourses.map((course) => (
                     <option key={course.id} value={course.id}>
@@ -253,559 +204,328 @@ export default function TrainerAttendancePage() {
               </div>
 
               <div>
-                <label
-                  htmlFor="month"
-                  style={{
-                    display: "block",
-                    marginBottom: 8,
-                    fontWeight: 700,
-                  }}
-                >
-                  Filter by Month
+                <label className="mb-2 block text-sm font-medium text-[#c8d2e0]">
+                  Month
                 </label>
 
                 <select
-                  id="month"
-                  className="lms-select"
                   value={selectedMonth}
-                  onChange={(event) => {
-                    setSelectedMonth(event.target.value);
-                    setSelectedAttendanceId(null);
-                  }}
+                  onChange={(event) => setSelectedMonth(event.target.value)}
+                  className="w-full rounded-xl border border-[#34445d] bg-[#0b1220] px-4 py-3 text-sm text-white outline-none transition focus:border-[#5f7cff]"
                 >
                   <option value="all">All Months</option>
 
                   {availableMonths.map((month) => (
                     <option key={month} value={month}>
-                      {formatMonth(month)}
+                      {new Date(`${month}-01`).toLocaleDateString("en-US", {
+                        month: "long",
+                        year: "numeric",
+                      })}
                     </option>
                   ))}
                 </select>
               </div>
             </div>
-          </section>
 
-          {/* LOADING */}
-          {!ready && (
-            <div className="empty-state">
-              <div className="empty-state-icon">⏳</div>
-              <h3>Loading attendance...</h3>
-              <p>Please wait while the attendance data is loaded.</p>
+            {selectedCourse && (
+              <div className="mt-5 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+                <div className="rounded-xl border border-[#26344a] bg-[#0b1220] p-4">
+                  <p className="text-xs text-[#8e9bb0]">Course</p>
+
+                  <p className="mt-1 font-semibold text-white">
+                    {selectedCourse.shortName}
+                  </p>
+                </div>
+
+                <div className="rounded-xl border border-[#26344a] bg-[#0b1220] p-4">
+                  <p className="text-xs text-[#8e9bb0]">Batch</p>
+
+                  <p className="mt-1 font-semibold text-white">
+                    {selectedCourse.batch}
+                  </p>
+                </div>
+
+                <div className="rounded-xl border border-[#26344a] bg-[#0b1220] p-4">
+                  <p className="text-xs text-[#8e9bb0]">Schedule</p>
+
+                  <p className="mt-1 font-semibold text-white">
+                    {selectedCourse.schedule}
+                  </p>
+                </div>
+
+                <div className="rounded-xl border border-[#26344a] bg-[#0b1220] p-4">
+                  <p className="text-xs text-[#8e9bb0]">Students</p>
+
+                  <p className="mt-1 font-semibold text-white">
+                    {courseStudents.length}
+                  </p>
+                </div>
+              </div>
+            )}
+          </div>
+
+          {/* Main Content */}
+          <div className="grid gap-6 xl:grid-cols-[360px_1fr]">
+            {/* Attendance Sessions */}
+            <div className="rounded-2xl border border-[#26344a] bg-[#111a2a] p-5">
+              <div className="mb-4 flex items-center justify-between">
+                <div>
+                  <h2 className="font-semibold text-white">
+                    Attendance Sessions
+                  </h2>
+
+                  <p className="mt-1 text-xs text-[#8e9bb0]">
+                    Select a session to manage records.
+                  </p>
+                </div>
+
+                <span className="rounded-full bg-[#1b2940] px-3 py-1 text-xs font-semibold text-[#b9c8ff]">
+                  {filteredAttendance.length}
+                </span>
+              </div>
+
+              {filteredAttendance.length === 0 ? (
+                <div className="rounded-xl border border-dashed border-[#34445d] p-6 text-center">
+                  <p className="text-sm text-[#8e9bb0]">
+                    No attendance records found.
+                  </p>
+                </div>
+              ) : (
+                <div className="space-y-3">
+                  {filteredAttendance.map((attendance) => {
+                    const present = attendance.records.filter(
+                      (record) => record.status === "Present",
+                    ).length;
+
+                    const absent = attendance.records.filter(
+                      (record) => record.status === "Absent",
+                    ).length;
+
+                    const isSelected = selectedAttendance?.id === attendance.id;
+
+                    return (
+                      <button
+                        key={attendance.id}
+                        type="button"
+                        onClick={() => handleSelectAttendance(attendance.id)}
+                        className={`w-full rounded-xl border p-4 text-left transition ${
+                          isSelected
+                            ? "border-[#5f7cff] bg-[#17233a]"
+                            : "border-[#26344a] bg-[#0b1220] hover:border-[#40516c]"
+                        }`}
+                      >
+                        <div className="flex items-start justify-between gap-3">
+                          <div>
+                            <p className="font-semibold text-white">
+                              {new Date(
+                                `${attendance.date}T00:00:00`,
+                              ).toLocaleDateString("en-US", {
+                                day: "2-digit",
+                                month: "short",
+                                year: "numeric",
+                              })}
+                            </p>
+
+                            <p className="mt-1 text-xs text-[#8e9bb0]">
+                              {attendance.topic}
+                            </p>
+                          </div>
+
+                          <span className="text-xs font-semibold text-[#aebcff]">
+                            {present + absent > 0
+                              ? Math.round((present / (present + absent)) * 100)
+                              : 0}
+                            %
+                          </span>
+                        </div>
+
+                        <div className="mt-3 flex gap-2">
+                          <span className="rounded-full bg-[#123526] px-2.5 py-1 text-[11px] font-medium text-[#72e0a5]">
+                            {present} Present
+                          </span>
+
+                          <span className="rounded-full bg-[#3b2028] px-2.5 py-1 text-[11px] font-medium text-[#ff9cae]">
+                            {absent} Absent
+                          </span>
+                        </div>
+                      </button>
+                    );
+                  })}
+                </div>
+              )}
             </div>
-          )}
 
-          {ready && (
-            <>
-              {/* STAT CARDS */}
-              <section
-                className="stats-grid"
-                style={{
-                  marginBottom: 20,
-                }}
-              >
-                <div className="stat-card">
-                  <div className="stat-icon">👥</div>
-
+            {/* Attendance Editor */}
+            <div className="rounded-2xl border border-[#26344a] bg-[#111a2a] p-5">
+              {!selectedAttendance ? (
+                <div className="grid min-h-[420px] place-items-center text-center">
                   <div>
-                    <div className="info-box-label">
-                      Enrolled Students
+                    <div className="mx-auto mb-4 grid h-14 w-14 place-items-center rounded-2xl bg-[#1b2940] text-[#8fa6ff]">
+                      ✓
                     </div>
 
-                    <div className="info-box-value">
-                      {courseStudents.length}
-                    </div>
-                  </div>
-                </div>
-
-                <div className="stat-card">
-                  <div className="stat-icon">📅</div>
-
-                  <div>
-                    <div className="info-box-label">
-                      Attendance Days
-                    </div>
-
-                    <div className="info-box-value">
-                      {filteredAttendance.length}
-                    </div>
-                  </div>
-                </div>
-
-                <div className="stat-card">
-                  <div className="stat-icon">✓</div>
-
-                  <div>
-                    <div className="info-box-label">
-                      Present Today
-                    </div>
-
-                    <div className="info-box-value">
-                      {presentCount}
-                    </div>
-                  </div>
-                </div>
-
-                <div className="stat-card">
-                  <div className="stat-icon">%</div>
-
-                  <div>
-                    <div className="info-box-label">
-                      Selected Day
-                    </div>
-
-                    <div className="info-box-value">
-                      {attendancePercentage}%
-                    </div>
-                  </div>
-                </div>
-              </section>
-
-              {/* ATTENDANCE DAYS */}
-              <section
-                className="lms-card"
-                style={{ marginBottom: 20 }}
-              >
-                <div
-                  style={{
-                    display: "flex",
-                    justifyContent: "space-between",
-                    alignItems: "center",
-                    gap: 12,
-                    marginBottom: 16,
-                    flexWrap: "wrap",
-                  }}
-                >
-                  <div>
-                    <h2 style={{ margin: 0 }}>
-                      Attendance Sessions
+                    <h2 className="font-semibold text-white">
+                      No Attendance Selected
                     </h2>
 
-                    <p
-                      style={{
-                        margin: "5px 0 0",
-                        color: "var(--text-secondary)",
-                      }}
-                    >
-                      Select a session to manage student attendance.
+                    <p className="mt-2 max-w-sm text-sm text-[#8e9bb0]">
+                      Select an attendance session from the left panel.
                     </p>
                   </div>
-
-                  <span className="status-pill status-active">
-                    {filteredAttendance.length} Sessions
-                  </span>
                 </div>
-
-                {filteredAttendance.length === 0 ? (
-                  <div className="empty-state">
-                    <div className="empty-state-icon">📅</div>
-
-                    <h3>No attendance records</h3>
-
-                    <p>
-                      There are no attendance sessions for this course
-                      and month.
-                    </p>
-                  </div>
-                ) : (
-                  <div
-                    style={{
-                      display: "flex",
-                      gap: 10,
-                      overflowX: "auto",
-                      paddingBottom: 4,
-                    }}
-                  >
-                    {filteredAttendance.map((attendance) => {
-                      const sessionPresent = attendance.records.filter(
-                        (record) => record.status === "Present"
-                      ).length;
-
-                      const sessionTotal = attendance.records.length;
-
-                      const sessionPercentage =
-                        sessionTotal > 0
-                          ? Math.round(
-                              (sessionPresent / sessionTotal) * 100
-                            )
-                          : 0;
-
-                      const isSelected =
-                        attendance.id === selectedAttendanceId;
-
-                      return (
-                        <button
-                          key={attendance.id}
-                          type="button"
-                          onClick={() =>
-                            setSelectedAttendanceId(attendance.id)
-                          }
-                          style={{
-                            minWidth: 210,
-                            textAlign: "left",
-                            padding: 16,
-                            borderRadius: 14,
-                            border: isSelected
-                              ? "1px solid var(--primary)"
-                              : "1px solid rgba(148,163,184,0.16)",
-                            background: isSelected
-                              ? "rgba(56,167,255,0.10)"
-                              : "var(--card-secondary)",
-                            color: "inherit",
-                            cursor: "pointer",
-                          }}
-                        >
-                          <div
-                            style={{
-                              display: "flex",
-                              justifyContent: "space-between",
-                              gap: 10,
-                              marginBottom: 10,
-                            }}
-                          >
-                            <strong>
-                              {formatDate(attendance.date)}
-                            </strong>
-
-                            <span
-                              style={{
-                                color:
-                                  sessionPercentage >= 75
-                                    ? "var(--success)"
-                                    : sessionPercentage >= 50
-                                      ? "var(--warning)"
-                                      : "var(--danger)",
-                                fontWeight: 800,
-                              }}
-                            >
-                              {sessionPercentage}%
-                            </span>
-                          </div>
-
-                          <div
-                            style={{
-                              color: "var(--text-secondary)",
-                              fontSize: 13,
-                            }}
-                          >
-                            {attendance.topic}
-                          </div>
-
-                          <div
-                            style={{
-                              marginTop: 10,
-                              fontSize: 12,
-                              color: "var(--muted)",
-                            }}
-                          >
-                            {sessionPresent} present / {sessionTotal} marked
-                          </div>
-                        </button>
-                      );
-                    })}
-                  </div>
-                )}
-              </section>
-
-              {/* SELECTED ATTENDANCE */}
-              {selectedAttendance && selectedCourse && (
-                <section className="lms-card">
-                  <div
-                    style={{
-                      display: "flex",
-                      justifyContent: "space-between",
-                      alignItems: "flex-start",
-                      gap: 20,
-                      marginBottom: 20,
-                      flexWrap: "wrap",
-                    }}
-                  >
+              ) : (
+                <>
+                  {/* Session Header */}
+                  <div className="flex flex-col gap-4 border-b border-[#26344a] pb-5 lg:flex-row lg:items-center lg:justify-between">
                     <div>
-                      <h2 style={{ margin: 0 }}>
-                        {selectedCourse.title}
+                      <p className="text-xs font-medium uppercase tracking-wider text-[#8e9bb0]">
+                        Attendance Session
+                      </p>
+
+                      <h2 className="mt-1 text-xl font-bold text-white">
+                        {selectedAttendance.topic}
                       </h2>
 
-                      <p
-                        style={{
-                          margin: "7px 0 0",
-                          color: "var(--text-secondary)",
-                        }}
-                      >
-                        {formatDate(selectedAttendance.date)} •{" "}
-                        {selectedAttendance.topic}
+                      <p className="mt-1 text-sm text-[#8e9bb0]">
+                        {new Date(
+                          `${selectedAttendance.date}T00:00:00`,
+                        ).toLocaleDateString("en-US", {
+                          weekday: "long",
+                          day: "2-digit",
+                          month: "long",
+                          year: "numeric",
+                        })}
                       </p>
                     </div>
 
-                    <div
-                      style={{
-                        display: "flex",
-                        gap: 10,
-                        flexWrap: "wrap",
-                      }}
-                    >
-                      <button
-                        type="button"
-                        className="primary-button"
-                        onClick={markAllPresent}
-                      >
-                        ✓ Mark All Present
-                      </button>
+                    <div className="grid grid-cols-3 gap-2">
+                      <div className="rounded-xl border border-[#26344a] bg-[#0b1220] px-4 py-3 text-center">
+                        <p className="text-lg font-bold text-white">
+                          {attendanceStats.total}
+                        </p>
 
-                      <button
-                        type="button"
-                        className="secondary-button"
-                        onClick={markAllAbsent}
-                      >
-                        Mark All Absent
-                      </button>
-                    </div>
-                  </div>
-
-                  {/* SUMMARY */}
-                  <div
-                    style={{
-                      display: "grid",
-                      gridTemplateColumns:
-                        "repeat(3, minmax(0, 1fr))",
-                      gap: 12,
-                      marginBottom: 20,
-                    }}
-                  >
-                    <div
-                      className="info-box"
-                      style={{
-                        borderLeft: "3px solid var(--success)",
-                      }}
-                    >
-                      <div className="info-box-label">Present</div>
-
-                      <div
-                        className="info-box-value"
-                        style={{ color: "var(--success)" }}
-                      >
-                        {presentCount}
-                      </div>
-                    </div>
-
-                    <div
-                      className="info-box"
-                      style={{
-                        borderLeft: "3px solid var(--danger)",
-                      }}
-                    >
-                      <div className="info-box-label">Absent</div>
-
-                      <div
-                        className="info-box-value"
-                        style={{ color: "var(--danger)" }}
-                      >
-                        {absentCount}
-                      </div>
-                    </div>
-
-                    <div
-                      className="info-box"
-                      style={{
-                        borderLeft: "3px solid var(--primary)",
-                      }}
-                    >
-                      <div className="info-box-label">
-                        Attendance Rate
+                        <p className="text-[10px] text-[#8e9bb0]">Total</p>
                       </div>
 
-                      <div
-                        className="info-box-value"
-                        style={{ color: "var(--primary)" }}
-                      >
-                        {attendancePercentage}%
+                      <div className="rounded-xl border border-[#26344a] bg-[#0b1220] px-4 py-3 text-center">
+                        <p className="text-lg font-bold text-[#72e0a5]">
+                          {attendanceStats.present}
+                        </p>
+
+                        <p className="text-[10px] text-[#8e9bb0]">Present</p>
+                      </div>
+
+                      <div className="rounded-xl border border-[#26344a] bg-[#0b1220] px-4 py-3 text-center">
+                        <p className="text-lg font-bold text-[#ff9cae]">
+                          {attendanceStats.absent}
+                        </p>
+
+                        <p className="text-[10px] text-[#8e9bb0]">Absent</p>
                       </div>
                     </div>
                   </div>
 
-                  {/* STUDENT TABLE */}
-                  {courseStudents.length === 0 ? (
-                    <div className="empty-state">
-                      <div className="empty-state-icon">👥</div>
-
-                      <h3>No students enrolled</h3>
-
-                      <p>
-                        No active students are currently enrolled in this
-                        course.
-                      </p>
-                    </div>
-                  ) : (
-                    <div className="table-wrapper">
-                      <table className="lms-table">
+                  {/* Student List */}
+                  <div className="mt-5 overflow-hidden rounded-xl border border-[#26344a]">
+                    <div className="overflow-x-auto">
+                      <table className="w-full min-w-[720px]">
                         <thead>
-                          <tr>
-                            <th>Student</th>
-                            <th>Roll No</th>
-                            <th>Overall Attendance</th>
-                            <th>Today</th>
-                            <th style={{ textAlign: "right" }}>
-                              Action
+                          <tr className="border-b border-[#26344a] bg-[#0b1220]">
+                            <th className="px-5 py-4 text-left text-xs font-semibold uppercase tracking-wider text-[#8e9bb0]">
+                              Student
+                            </th>
+
+                            <th className="px-5 py-4 text-left text-xs font-semibold uppercase tracking-wider text-[#8e9bb0]">
+                              Roll No
+                            </th>
+
+                            <th className="px-5 py-4 text-left text-xs font-semibold uppercase tracking-wider text-[#8e9bb0]">
+                              Overall
+                            </th>
+
+                            <th className="px-5 py-4 text-center text-xs font-semibold uppercase tracking-wider text-[#8e9bb0]">
+                              Attendance
                             </th>
                           </tr>
                         </thead>
 
                         <tbody>
                           {courseStudents.map((student) => {
-                            const status = getStudentStatus(student.id);
+                            const status =
+                              studentAttendanceMap.get(student.id) ?? "Absent";
 
-                            const overallPercentage =
-                              getAttendancePercentage(student);
+                            const percentage = getAttendancePercentage(student);
 
                             return (
-                              <tr key={student.id}>
-                                <td>
-                                  <div
-                                    style={{
-                                      display: "flex",
-                                      alignItems: "center",
-                                      gap: 12,
-                                    }}
-                                  >
-                                    <div
-                                      style={{
-                                        width: 38,
-                                        height: 38,
-                                        borderRadius: "50%",
-                                        display: "grid",
-                                        placeItems: "center",
-                                        background:
-                                          "rgba(56,167,255,0.12)",
-                                        color: "var(--primary)",
-                                        fontWeight: 800,
-                                        flexShrink: 0,
-                                      }}
-                                    >
-                                      {student.name
-                                        .split(" ")
-                                        .map((word) => word[0])
-                                        .slice(0, 2)
-                                        .join("")
-                                        .toUpperCase()}
-                                    </div>
+                              <tr
+                                key={student.id}
+                                className="border-b border-[#26344a] last:border-b-0"
+                              >
+                                <td className="px-5 py-4">
+                                  <div>
+                                    <p className="font-medium text-white">
+                                      {student.name}
+                                    </p>
 
-                                    <div>
-                                      <strong>{student.name}</strong>
-
-                                      <div
-                                        style={{
-                                          fontSize: 12,
-                                          color: "var(--muted)",
-                                          marginTop: 2,
-                                        }}
-                                      >
-                                        {student.email}
-                                      </div>
-                                    </div>
+                                    <p className="mt-1 text-xs text-[#8e9bb0]">
+                                      {student.email}
+                                    </p>
                                   </div>
                                 </td>
 
-                                <td>{student.rollNo}</td>
+                                <td className="px-5 py-4 text-sm text-[#c8d2e0]">
+                                  {student.rollNo}
+                                </td>
 
-                                <td>
-                                  <div
-                                    style={{
-                                      minWidth: 130,
-                                    }}
-                                  >
-                                    <div
-                                      style={{
-                                        display: "flex",
-                                        justifyContent:
-                                          "space-between",
-                                        marginBottom: 6,
-                                        fontSize: 12,
-                                      }}
-                                    >
-                                      <span>
-                                        {student.present}P /{" "}
-                                        {student.absent}A
-                                      </span>
-
-                                      <strong>
-                                        {overallPercentage}%
-                                      </strong>
-                                    </div>
-
-                                    <div className="progress-track">
+                                <td className="px-5 py-4">
+                                  <div className="flex items-center gap-3">
+                                    <div className="h-2 w-24 overflow-hidden rounded-full bg-[#26344a]">
                                       <div
-                                        className={
-                                          overallPercentage >= 75
-                                            ? "progress-fill progress-fill-success"
-                                            : "progress-fill"
-                                        }
+                                        className="h-full rounded-full bg-[#5f7cff]"
                                         style={{
                                           width: `${Math.min(
-                                            overallPercentage,
-                                            100
+                                            percentage,
+                                            100,
                                           )}%`,
                                         }}
                                       />
                                     </div>
+
+                                    <span className="text-xs font-semibold text-white">
+                                      {percentage}%
+                                    </span>
                                   </div>
                                 </td>
 
-                                <td>
-                                  <span
-                                    className={`status-pill ${
-                                      status === "Present"
-                                        ? "status-active"
-                                        : "status-eliminated"
-                                    }`}
-                                  >
-                                    {status}
-                                  </span>
-                                </td>
-
-                                <td>
-                                  <div
-                                    style={{
-                                      display: "flex",
-                                      justifyContent: "flex-end",
-                                      gap: 8,
-                                    }}
-                                  >
+                                <td className="px-5 py-4">
+                                  <div className="flex justify-center gap-2">
                                     <button
                                       type="button"
-                                      className={
-                                        status === "Present"
-                                          ? "primary-button"
-                                          : "secondary-button"
-                                      }
                                       onClick={() =>
-                                        setStudentAttendance(
+                                        handleStatusChange(
                                           student.id,
-                                          "Present"
+                                          "Present",
                                         )
                                       }
-                                      style={{
-                                        padding: "8px 12px",
-                                        fontSize: 12,
-                                      }}
+                                      className={`rounded-lg px-4 py-2 text-xs font-semibold transition ${
+                                        status === "Present"
+                                          ? "bg-[#174b34] text-[#72e0a5]"
+                                          : "bg-[#172233] text-[#8e9bb0] hover:bg-[#203049]"
+                                      }`}
                                     >
                                       Present
                                     </button>
 
                                     <button
                                       type="button"
-                                      className={
-                                        status === "Absent"
-                                          ? "secondary-button"
-                                          : "primary-button"
-                                      }
                                       onClick={() =>
-                                        setStudentAttendance(
-                                          student.id,
-                                          "Absent"
-                                        )
+                                        handleStatusChange(student.id, "Absent")
                                       }
-                                      style={{
-                                        padding: "8px 12px",
-                                        fontSize: 12,
-                                      }}
+                                      className={`rounded-lg px-4 py-2 text-xs font-semibold transition ${
+                                        status === "Absent"
+                                          ? "bg-[#54232e] text-[#ff9cae]"
+                                          : "bg-[#172233] text-[#8e9bb0] hover:bg-[#203049]"
+                                      }`}
                                     >
                                       Absent
                                     </button>
@@ -817,30 +537,35 @@ export default function TrainerAttendancePage() {
                         </tbody>
                       </table>
                     </div>
-                  )}
-                </section>
+
+                    {courseStudents.length === 0 && (
+                      <div className="p-8 text-center">
+                        <p className="text-sm text-[#8e9bb0]">
+                          No active students enrolled in this course.
+                        </p>
+                      </div>
+                    )}
+                  </div>
+                </>
               )}
-
-              {/* NO SELECTED SESSION */}
-              {!selectedAttendance &&
-                filteredAttendance.length === 0 && (
-                  <section className="lms-card">
-                    <div className="empty-state">
-                      <div className="empty-state-icon">📋</div>
-
-                      <h3>No attendance session selected</h3>
-
-                      <p>
-                        Select a course with attendance records to manage
-                        student attendance.
-                      </p>
-                    </div>
-                  </section>
-                )}
-            </>
-          )}
-        </main>
+            </div>
+          </div>
+        </div>
       </DashboardShell>
     </AuthGuard>
+  );
+}
+
+export default function TrainerAttendancePage() {
+  return (
+    <Suspense
+      fallback={
+        <div className="min-h-screen grid place-items-center bg-[#080f1c] text-[#8e9bb0]">
+          Loading attendance...
+        </div>
+      }
+    >
+      <TrainerAttendanceContent />
+    </Suspense>
   );
 }
